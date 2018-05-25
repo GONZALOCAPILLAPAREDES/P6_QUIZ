@@ -1,6 +1,10 @@
 const Sequelize = require("sequelize");
 const {models} = require("../models");
 
+
+
+
+
 // Autoload the quiz with id equals to :quizId
 exports.load = (req, res, next, quizId) => {
 
@@ -138,6 +142,84 @@ exports.play = (req, res, next) => {
     });
 };
 
+//GET /quizzes/randomplay
+exports.randomplay = (req,res,next) => {
+
+
+    if(req.session.randomPlay){
+        quizRender(req,res,next);
+    }else {
+        req.session.randomPlay= [];
+        req.session.score= 0;
+        let i=0;
+        models.quiz.findAll({raw: true})
+            .each(quiz => {
+
+                    req.session.randomPlay[i] = quiz.id;
+                    i++;
+
+            })
+            .then(() =>{
+                quizRender(req,res,next);
+            });
+    }
+};
+// Metodo axuliar para renderizar
+ quizRender= (req,res,next) =>{
+     req.session.num  =Math.floor(Math.random()*req.session.randomPlay.length)
+     let random_id = req.session.randomPlay[ req.session.num ];
+
+     const query=req;
+     const score=req.session.score;
+     const answer = query.answer ||'';
+     models.quiz.findById(random_id)
+         .then(quiz =>{
+             if(quiz){
+                 res.render('quizzes/randomplay',{
+                     quiz,
+                     answer,
+                     score
+                 });
+             }else{
+                 res.render('quizzes/randomnomore',{score:0});
+             }
+         })
+
+ }
+
+//GET /quizzes/randomcheck
+exports.randomcheck=(req,res,next)=>{
+
+    const {quiz,query}=req;
+
+    const answer= query.answer ||"";
+    const result =answer.toLowerCase().trim() === quiz.answer.toLowerCase().trim();
+
+     if(result) {
+         req.session.randomPlay.splice(req.session.num,1);
+         req.session.score++;
+
+     }
+     const score = req.session.score;
+
+     if(req.session.randomPlay.length === 0){
+         req.session.score=0;
+         req.session.randomPlay=[];
+         res.render('quizzes/randomnomore',{
+             score
+         });
+     }else{
+         res.render('quizzes/randomresult',{
+             quiz,
+             result,
+             answer,
+             score
+         });
+     }
+
+
+};
+
 
 // GET /quizzes/:quizId/check
 exports.check = (req, res, next) => {
@@ -152,4 +234,5 @@ exports.check = (req, res, next) => {
         result,
         answer
     });
+
 };
